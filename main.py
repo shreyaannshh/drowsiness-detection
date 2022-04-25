@@ -1,68 +1,67 @@
 import cv2
-import tensorflow as tf
-from tensorflow.keras.models import load_model
-import numpy as np
 from pygame import mixer
 
-face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-eye_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_eye.xml')
-model = load_model(r'D:\Python37\Projects\iNeuron Intership Projects\CV_Driver_Drowsiness_Detection\models\model.h5')
-
+#For playing our sound in background
 mixer.init()
-sound= mixer.Sound(r'D:\Python37\Projects\iNeuron Intership Projects\CV_Driver_Drowsiness_Detection\alarm.wav')
-cap = cv2.VideoCapture(0)
-Score = 0
-while True:
-    ret, frame = cap.read()
-    height,width = frame.shape[0:2]
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    faces= face_cascade.detectMultiScale(gray, scaleFactor= 1.2, minNeighbors=3)
-    eyes= eye_cascade.detectMultiScale(gray, scaleFactor= 1.1, minNeighbors=1)
-    
-    cv2.rectangle(frame, (0,height-50),(200,height),(0,0,0),thickness=cv2.FILLED)
-    
-    for (x,y,w,h) in faces:
-        cv2.rectangle(frame,pt1=(x,y),pt2=(x+w,y+h), color= (255,0,0), thickness=3 )
-        
-    for (ex,ey,ew,eh) in eyes:
-        #cv2.rectangle(frame,pt1=(ex,ey),pt2=(ex+ew,ey+eh), color= (255,0,0), thickness=3 )
-        
-        # preprocessing steps
-        eye= frame[ey:ey+eh,ex:ex+w]
-        eye= cv2.resize(eye,(80,80))
-        eye= eye/255
-        eye= eye.reshape(80,80,3)
-        eye= np.expand_dims(eye,axis=0)
-        # preprocessing is done now model prediction
-        prediction = model.predict(eye)
-        
-        # if eyes are closed
-        if prediction[0][0]>0.30:
-            cv2.putText(frame,'closed',(10,height-20),fontFace=cv2.FONT_HERSHEY_COMPLEX_SMALL,fontScale=1,color=(255,255,255),
-                       thickness=1,lineType=cv2.LINE_AA)
-            cv2.putText(frame,'Score'+str(Score),(100,height-20),fontFace=cv2.FONT_HERSHEY_COMPLEX_SMALL,fontScale=1,color=(255,255,255),
-                       thickness=1,lineType=cv2.LINE_AA)
-            Score=Score+1
-            if(Score>15):
-                try:
-                    sound.play()
-                except:
-                    pass
-            
-        # if eyes are open
-        elif prediction[0][1]>0.90:
-            cv2.putText(frame,'open',(10,height-20),fontFace=cv2.FONT_HERSHEY_COMPLEX_SMALL,fontScale=1,color=(255,255,255),
-                       thickness=1,lineType=cv2.LINE_AA)      
-            cv2.putText(frame,'Score'+str(Score),(100,height-20),fontFace=cv2.FONT_HERSHEY_COMPLEX_SMALL,fontScale=1,color=(255,255,255),
-                       thickness=1,lineType=cv2.LINE_AA)
-            Score = Score-1
-            if (Score<0):
-                Score=0
-            
-        
-    cv2.imshow('frame',frame)
-    if cv2.waitKey(33) & 0xFF==ord('q'):
-        break
-        
-cap.release()
+sound=mixer.Sound("C:\\Users\\shreyaannshhh\\Desktop\\NewDrowsiness\\alarm.wav")
+
+
+#Getting our dataset
+# Haar Cascades can be used to detect any types of objects 
+# as long as you have the appropriate XML file for it. 
+
+face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
+eye_cascade = cv2.CascadeClassifier('haarcascade_eye.xml')
+lefteye_cascade = cv2.CascadeClassifier('haarcascade_lefteye_2splits.xml') 
+
+# define a video capture object
+vid = cv2.VideoCapture(0)
+  
+while(True):
+      # Capture the video frame by frame
+      ret, frame = vid.read()
+      grayFrame = cv2.cvtColor(frame , cv2.COLOR_BGR2GRAY)
+      faces = face_cascade.detectMultiScale(grayFrame , 1.1, 4)
+      
+      for (x, y, w, h) in faces:
+            cv2.rectangle(frame , (x, y), (x + w, y + h) , (255, 0, 0) , 2)
+            x1=(x+w)//2
+
+            #Region of interest for gray and for coloured image 
+            roi_gray = grayFrame[y:y + h, x1:x1 + w]
+            roi_color = frame[y:y + h, x1:x1 + w]
+
+            eye = 0
+            openEye = 0
+            closeEye = 0
+
+            openEyes = eye_cascade.detectMultiScale(roi_gray)
+            AllEyes = lefteye_cascade.detectMultiScale(roi_gray)
+
+            for (ex, ey, ew, eh) in openEyes:
+                  openEye += 1
+                  cv2.rectangle(roi_color, (ex, ey), (ex + ew, ey + eh), (0, 255, 0),2)
+
+            for (ex, ey, ew, eh) in AllEyes:
+                  eye += 1
+                  cv2.rectangle(roi_color, (ex, ey), (ex + ew, ey + eh), (0, 0, 40),2)
+
+                  if (openEye==closeEye):
+                        sound.play()
+
+      # Display the resulting frame
+      cv2.imshow('frame', frame)
+      
+      # Pressing 'q' will exit the frame 
+      # cv2 waitkey() allows you to wait for a specific time in milliseconds 
+      # until you press any button on the keyword.
+
+      if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+
+# After the loop vid object is released 
+vid.release()
+
+# Destroy all the windows
 cv2.destroyAllWindows()
